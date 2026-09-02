@@ -1,5 +1,6 @@
 #pragma once
 
+#include "application/magnet/system/BallMomentumTracker.h"
 #include "physics/PhysicsWorld.h"
 
 #include <array>
@@ -28,6 +29,15 @@ public:
 		bool releaseChains = false;
 	};
 
+	struct ReleaseConvergenceDiagnostics {
+		Vector3 focusPoint{};
+		float predictedRmsSpreadBefore = 0.0f;
+		float predictedRmsSpreadAfter = 0.0f;
+		float maximumDirectionCorrectionRadians = 0.0f;
+		bool applied = false;
+		bool valid = false;
+	};
+
 	[[nodiscard]] bool Initialize();
 	[[nodiscard]] bool Reset();
 	void SetPlayerCommand(const PlayerCommand& command) noexcept { command_ = command; }
@@ -44,6 +54,10 @@ public:
 	[[nodiscard]] float GetPlayerHeadingRadians() const noexcept { return playerHeadingRadians_; }
 	[[nodiscard]] bool AreChainsAttached() const noexcept { return chainsAttached_; }
 	[[nodiscard]] bool IsHealthy() const noexcept { return healthy_; }
+	[[nodiscard]] const ReleaseConvergenceDiagnostics&
+		GetLastReleaseConvergenceDiagnostics() const noexcept {
+		return lastReleaseConvergenceDiagnostics_;
+	}
 
 private:
 	static constexpr std::size_t kBendConstraintsPerSide = kLinksPerSide - 1;
@@ -58,8 +72,8 @@ private:
 	[[nodiscard]] bool CreateTestBallPool();
 	[[nodiscard]] bool EmitTestBall() noexcept;
 	[[nodiscard]] bool ApplyMagneticRestoringForces(float fixedDeltaTime) noexcept;
-	[[nodiscard]] bool UpdateReleaseVelocityMemory(float fixedDeltaTime) noexcept;
-	[[nodiscard]] bool ApplyReleaseVelocityMemory() noexcept;
+	[[nodiscard]] bool UpdateMomentumTrackers(float fixedDeltaTime) noexcept;
+	[[nodiscard]] bool ApplyMomentumLaunch() noexcept;
 	[[nodiscard]] bool ReleaseChains() noexcept;
 	void DeactivateDistantTestBalls() noexcept;
 
@@ -71,11 +85,12 @@ private:
 	std::array<std::size_t, kLinksPerSide> rightConstraintIndices_{};
 	std::array<std::size_t, kBendConstraintsPerSide> leftBendConstraintIndices_{};
 	std::array<std::size_t, kBendConstraintsPerSide> rightBendConstraintIndices_{};
-	std::array<Vector3, kLinksPerSide> leftReleaseVelocityMemory_{};
-	std::array<Vector3, kLinksPerSide> rightReleaseVelocityMemory_{};
+	BallMomentumTracker leftMomentumTracker_{};
+	BallMomentumTracker rightMomentumTracker_{};
 	std::array<physics::BodyHandle, kTestBallCapacity> testBalls_{};
 	PlayerCommand command_{};
 	EmitterSettings emitterSettings_{};
+	ReleaseConvergenceDiagnostics lastReleaseConvergenceDiagnostics_{};
 	Vector3 playerVelocity_{};
 	float playerHeadingRadians_ = 0.0f;
 	float emitterTimer_ = 0.0f;

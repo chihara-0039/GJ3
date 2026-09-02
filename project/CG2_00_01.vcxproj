@@ -159,9 +159,10 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="application\scene\AbstractSceneFactory.cpp" />
-	<ClCompile Include="application\magnet\system\MagnetChainSystem.cpp" />
-	<ClCompile Include="application\magnet\ui\MagnetPrototypeWindow.cpp" />
-	<ClCompile Include="application\scene\MagnetPrototypeScene.cpp" />
+    <ClCompile Include="application\magnet\system\BallMomentumTracker.cpp" />
+    <ClCompile Include="application\magnet\system\MagnetChainSystem.cpp" />
+    <ClCompile Include="application\magnet\ui\MagnetPrototypeWindow.cpp" />
+    <ClCompile Include="application\scene\MagnetPrototypeScene.cpp" />
 	<ClCompile Include="engine\physics\PhysicsWorld.cpp" />
     <ClCompile Include="application\farm\core\FarmGrid.cpp" />
     <ClCompile Include="application\farm\debug\FarmDebugEditorWindow.cpp">
@@ -422,9 +423,10 @@ copy "$(WindowsSdkDir)bin\$(TargetPlatformVersion)\x64\dxil.dll" "$(TargetDir)dx
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="application\scene\AbstractSceneFactory.h" />
-	<ClInclude Include="application\magnet\system\MagnetChainSystem.h" />
-	<ClInclude Include="application\magnet\ui\MagnetPrototypeWindow.h" />
-	<ClInclude Include="application\scene\MagnetPrototypeScene.h" />
+    <ClInclude Include="application\magnet\system\BallMomentumTracker.h" />
+    <ClInclude Include="application\magnet\system\MagnetChainSystem.h" />
+    <ClInclude Include="application\magnet\ui\MagnetPrototypeWindow.h" />
+    <ClInclude Include="application\scene\MagnetPrototypeScene.h" />
 	<ClInclude Include="engine\physics\PhysicsWorld.h" />
     <ClInclude Include="application\farm\core\FarmGrid.h" />
     <ClInclude Include="application\farm\core\FarmTypes.h" />

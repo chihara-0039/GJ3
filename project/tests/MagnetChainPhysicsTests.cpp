@@ -1,4 +1,5 @@
 #include "application/magnet/system/MagnetChainSystem.h"
+#include "application/magnet/system/BallMomentumTracker.h"
 
 #include <algorithm>
 #include <array>
@@ -18,6 +19,8 @@ constexpr float kMaximumAllowedJointBendRadians = 1.40f;
 constexpr float kMinimumVisibleJointBendRadians = 0.10f;
 constexpr float kMinimumRootSideProjection = 0.35f;
 constexpr float kMinimumRootReleaseTravel = 0.50f;
+constexpr float kMaximumReleaseConvergenceCorrectionRadians = 0.21f;
+constexpr float kMaximumReleaseConvergenceSpreadRatio = 0.95f;
 constexpr float kFirstHorizontalOffset = 1.2247449f;
 constexpr float kLinkLength = 1.0f;
 
@@ -116,6 +119,32 @@ float GetMaximumConstraintError(const magnet::MagnetChainSystem& system)
 
 int main()
 {
+	magnet::BallMomentumTracker momentumTracker;
+	for (int step = 0; step < 30; ++step) {
+		if (!momentumTracker.Update(0, Vector3{ 0.0f, 0.0f, 4.0f }, kFixedDeltaTime)) {
+			std::cerr << "Low-speed momentum tracking failed.\n";
+			return 38;
+		}
+	}
+	const Vector3 lowMomentumLaunch =
+		momentumTracker.CalculateLaunchVelocity(0, Vector3{ 0.0f, 0.0f, 4.0f });
+	momentumTracker.Reset();
+	for (int step = 0; step < 30; ++step) {
+		if (!momentumTracker.Update(0, Vector3{ 0.0f, 0.0f, 14.0f }, kFixedDeltaTime)) {
+			std::cerr << "High-speed momentum tracking failed.\n";
+			return 39;
+		}
+	}
+	const Vector3 highMomentumLaunch =
+		momentumTracker.CalculateLaunchVelocity(0, Vector3{ 0.0f, 0.0f, 14.0f });
+	const float lowMomentumSpeed = DistanceXZ(Vector3{}, lowMomentumLaunch);
+	const float highMomentumSpeed = DistanceXZ(Vector3{}, highMomentumLaunch);
+	if (!std::isfinite(lowMomentumSpeed) || !std::isfinite(highMomentumSpeed) ||
+		highMomentumSpeed <= lowMomentumSpeed * 3.5f || highMomentumSpeed > 22.001f) {
+		std::cerr << "Momentum did not produce a bounded launch-speed increase.\n";
+		return 40;
+	}
+
 	magnet::MagnetChainSystem system;
 	if (!system.Initialize()) {
 		std::cerr << "Initialize failed.\n";
@@ -360,6 +389,37 @@ int main()
 		std::cerr << "MAGNET OFF did not deactivate every chain constraint.\n";
 		return 22;
 	}
+	const magnet::MagnetChainSystem::ReleaseConvergenceDiagnostics& convergenceDiagnostics =
+		system.GetLastReleaseConvergenceDiagnostics();
+	std::cout << "release_predicted_rms_spread_before="
+		<< convergenceDiagnostics.predictedRmsSpreadBefore << '\n';
+	std::cout << "release_predicted_rms_spread_after="
+		<< convergenceDiagnostics.predictedRmsSpreadAfter << '\n';
+	std::cout << "release_maximum_direction_correction_radians="
+		<< convergenceDiagnostics.maximumDirectionCorrectionRadians << '\n';
+	std::cout << "release_focus=" << convergenceDiagnostics.focusPoint.x << ','
+		<< convergenceDiagnostics.focusPoint.z << '\n';
+	if (!convergenceDiagnostics.valid || !convergenceDiagnostics.applied ||
+		!IsFinite(convergenceDiagnostics.focusPoint) ||
+		!std::isfinite(convergenceDiagnostics.predictedRmsSpreadBefore) ||
+		!std::isfinite(convergenceDiagnostics.predictedRmsSpreadAfter) ||
+		convergenceDiagnostics.predictedRmsSpreadAfter >=
+			convergenceDiagnostics.predictedRmsSpreadBefore) {
+		std::cerr << "Release convergence assist did not reduce predicted trajectory spread.\n";
+		return 34;
+	}
+	if (!std::isfinite(convergenceDiagnostics.maximumDirectionCorrectionRadians) ||
+		convergenceDiagnostics.maximumDirectionCorrectionRadians >
+			kMaximumReleaseConvergenceCorrectionRadians) {
+		std::cerr << "Release convergence assist exceeded its direction-correction bound.\n";
+		return 35;
+	}
+	if (convergenceDiagnostics.predictedRmsSpreadAfter >
+		convergenceDiagnostics.predictedRmsSpreadBefore *
+			kMaximumReleaseConvergenceSpreadRatio) {
+		std::cerr << "Release convergence assist was too weak to be meaningful.\n";
+		return 36;
+	}
 	command = {};
 	for (int step = 0; step < kReleaseTravelStepCount; ++step) {
 		system.SetPlayerCommand(command);
@@ -414,6 +474,10 @@ int main()
 	if (!system.Reset() || !ValidateFiniteBodies(system)) {
 		std::cerr << "Reset failed.\n";
 		return 8;
+	}
+	if (system.GetLastReleaseConvergenceDiagnostics().valid) {
+		std::cerr << "Reset retained stale release-convergence diagnostics.\n";
+		return 37;
 	}
 	const physics::SphereBody* resetPlayer =
 		system.GetPhysicsWorld().GetBody(system.GetPlayerBody());
